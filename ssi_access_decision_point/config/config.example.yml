@@ -1,0 +1,17 @@
+---
+services:
+  ssi_access_decision_point:
+    server:
+      host: 'localhost'
+      port: 5002
+      debug: true
+    credentials:
+      verifiers:
+        jwt:
+          verify_vc_url: "http://localhost:5020/verify/vc/?jwt={jwt_vc}"
+          verify_vp_url: "http://localhost:5020/verify/vp/?verify_vcs={verify_credentials}&jwt={jwt_vp}"
+    authorization:
+      username: 'adp'
+      password: 'adp'
+    logging:
+      level: DEBUG
