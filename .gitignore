@@ -1,7 +1,3 @@
-# Do not upload configuration files
-ssi_access_decision_point/config/config.yml
-ssi_access_decision_point/config/config.backup.yml
-
 # No need to upload the Database file
 db.requests.json
 
