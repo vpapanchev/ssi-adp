@@ -5,6 +5,58 @@ import logging
 
 from ssi_access_decision_point import utils, constants
 
+def verify_jwt_vp_with_credentials(jwt_vp):
+  """
+  Verifies a W3C Verifiable Presentation in JSON-LD syntax with JWT proofs.
+
+  NB: Also directly verifies the included credentials in the VP.
+  Assumes, that all included VCs are also JWTs.
+
+  Verification is outsourced to another component: VC_JWT_Verifier
+  Expected resolution of all DIDs to be executed in parallel!
+
+  Format of output depends on VC_JWT_Verifier.
+  Expected output given below.
+
+  :param jwt_vp: Verifiable Presentation encoded as JSON Web Token
+  :return: {
+    "valid": True/False: Whether the VP is verified,
+    "error": "<Reason in case the VP is not valid>",
+    "data": {
+      "payload": <decoded_jwt_payload>,
+      "holder": <decoded_jwt_payload['iss'] = Holder of the VP>,
+      "jwt": <the JWT (same as input)>,
+      "verifiablePresentation": <The JWT Payload translated to W3C VP format>,
+      "challenge": {
+        "nonce": <nonce contained in VP or None>,
+        "domain": <domain contained in VP or None>
+      }
+    } or None if not valid
+  }
+  """
+
+  credentials_config = utils.load_component_configuration('credentials')
+  verify_vp_url = credentials_config['verifiers']['jwt']['verify_vp_complete_url']
+  try:
+    response = requests.get(verify_vp_url.format(jwt_vp=jwt_vp))
+  except requests.exceptions.RequestException as requests_error:
+    logging.error(f'Got a RequestsException when connecting to VC_JWT_VERIFIER: {str(requests_error)}')
+    return {'valid': False, 'error': 'Could not verify Presentation', 'data': None}
+
+  response_data = response.json()
+  if response.status_code != constants.HTTP_SUCCESS_STATUS:
+    error_msg = f"Response from VC_JWT_Verifier with status code: {response.status_code}."
+    if 'error' in response_data:
+      error_msg = error_msg + f" Error: {response_data['error']}"
+    logging.error(error_msg)
+    return {'valid': False, 'error': 'Could not verify Presentation', 'data': None}
+
+  if not __is_jwt_vp_verification_api_response_valid(response_data):
+    logging.error("Unexpected response structure from JWT_VC_Verifier.")
+    return {'valid': False, 'error': 'Could not verify Presentation', 'data': None}
+
+  return response_data
+
 
 def verify_jwt_vp(jwt_vp):
   """
@@ -35,7 +87,7 @@ def verify_jwt_vp(jwt_vp):
   """
 
   credentials_config = utils.load_component_configuration('credentials')
-  verify_vp_url = credentials_config['verifiers']['jwt']['verify_vp_url']
+  verify_vp_url = credentials_config['verifiers']['jwt']['verify_vp_only_url']
   try:
     response = requests.get(verify_vp_url.format(verify_credentials='false', jwt_vp=jwt_vp))
   except requests.exceptions.RequestException as requests_error:

@@ -28,7 +28,8 @@ def verify_presentation(presentation, nonce, domain):
   jwt_vp = __find_jwt(presentation)
   if jwt_vp:
     # We have a Verifiable Presentation as a JSON Web Token
-    return __verify_jwt_vp(jwt_vp, nonce, domain)
+    # Verify the VP and the VCs with a single call to the JWT Verifier (parallel DIDs resolution expected)
+    return __verify_jwt_vp(jwt_vp, nonce, domain, verify_vcs_separate=False)
 
   return {
     'valid': False,
@@ -38,8 +39,12 @@ def verify_presentation(presentation, nonce, domain):
   }
 
 
-def __verify_jwt_vp(jwt_vp, nonce, domain):
-  vp_verification_result = jwt.verify_jwt_vp(jwt_vp)
+def __verify_jwt_vp(jwt_vp, nonce, domain, verify_vcs_separate=True):
+  if verify_vcs_separate:
+    vp_verification_result = jwt.verify_jwt_vp(jwt_vp)
+  else:
+    vp_verification_result = jwt.verify_jwt_vp_with_credentials(jwt_vp)
+
   if not vp_verification_result['valid']:
     # Invalid VP
     return {
@@ -64,23 +69,44 @@ def __verify_jwt_vp(jwt_vp, nonce, domain):
       'credentials': None
     }
 
-  # Valid VP with verified nonce and domain -> Verify Credentials of the VP
-  verified_credentials, error_msg = __verify_credentials_of_presentation(
-    vp_verification_result['data']['verifiablePresentation'], vp_verification_result['data']['holder'])
-  if error_msg:
+  w3c_presentation = vp_verification_result['data']['verifiablePresentation']
+  holder_did = vp_verification_result['data']['holder']
+
+  if not verify_vcs_separate:
+    # The included VCs are already verified and translated to the W3C data model
+    if 'verifiableCredential' not in w3c_presentation or not w3c_presentation['verifiableCredential']:
+      return {
+        'valid': False,
+        'reason': "Missing verifiableCredential field in the Verifiable Presentation",
+        'holder': None,
+        'credentials': None
+      }
+    credentials = w3c_presentation['verifiableCredential']
+    if not isinstance(credentials, list):
+      credentials = [credentials]
     return {
-      'valid': False,
-      'reason': error_msg,
-      'holder': None,
-      'credentials': None
-    }
+        'valid': True,
+        'reason': None,
+        'holder': holder_did,
+        'credentials': credentials
+      }
   else:
-    return {
-      'valid': True,
-      'reason': None,
-      'holder': vp_verification_result['data']['holder'],
-      'credentials': verified_credentials
-    }
+    # Valid VP with verified nonce and domain -> Verify Credentials of the VP
+    verified_credentials, error_msg = __verify_credentials_of_presentation(w3c_presentation, holder_did)
+    if error_msg:
+      return {
+        'valid': False,
+        'reason': error_msg,
+        'holder': None,
+        'credentials': None
+      }
+    else:
+      return {
+        'valid': True,
+        'reason': None,
+        'holder': holder_did,
+        'credentials': verified_credentials
+      }
 
 
 def __verify_credentials_of_presentation(w3c_presentation, holder):
