@@ -36,9 +36,9 @@ def verify_jwt_vp_with_credentials(jwt_vp):
   """
 
   credentials_config = utils.load_component_configuration('credentials')
-  verify_vp_url = credentials_config['verifiers']['jwt']['verify_vp_complete_url']
+  verify_vp_url = credentials_config['verifiers']['jwt']['verify_vp_url']
   try:
-    response = requests.get(verify_vp_url.format(jwt_vp=jwt_vp))
+    response = requests.get(verify_vp_url.format(verify_credentials='true', jwt_vp=jwt_vp))
   except requests.exceptions.RequestException as requests_error:
     logging.error(f'Got a RequestsException when connecting to VC_JWT_VERIFIER: {str(requests_error)}')
     return {'valid': False, 'error': 'Could not verify Presentation', 'data': None}
@@ -87,7 +87,7 @@ def verify_jwt_vp(jwt_vp):
   """
 
   credentials_config = utils.load_component_configuration('credentials')
-  verify_vp_url = credentials_config['verifiers']['jwt']['verify_vp_only_url']
+  verify_vp_url = credentials_config['verifiers']['jwt']['verify_vp_url']
   try:
     response = requests.get(verify_vp_url.format(verify_credentials='false', jwt_vp=jwt_vp))
   except requests.exceptions.RequestException as requests_error:
