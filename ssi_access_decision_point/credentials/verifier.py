@@ -49,14 +49,14 @@ def __verify_jwt_vp(jwt_vp, nonce, domain):
       'credentials': None
     }
 
-  if nonce and nonce != vp_verification_result['data']['challenge']['nonce']:
+  if nonce != vp_verification_result['data']['challenge']['nonce']:
     return {
       'valid': False,
       'reason': "Required nonce missing in VP",
       'holder': None,
       'credentials': None
     }
-  if domain and domain != vp_verification_result['data']['challenge']['domain']:
+  if domain != vp_verification_result['data']['challenge']['domain']:
     return {
       'valid': False,
       'reason': "Required domain missing in VP",
